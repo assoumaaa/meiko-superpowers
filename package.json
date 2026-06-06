@@ -1,0 +1,6 @@
+{
+  "name": "meiko-superpowers",
+  "version": "0.1.0",
+  "description": "Meiko development skills, hooks, and conventions for backend and frontend work.",
+  "type": "module"
+}

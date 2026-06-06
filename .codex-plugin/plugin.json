@@ -1,0 +1,24 @@
+{
+	"name": "meiko-superpowers",
+	"version": "0.1.0",
+	"description": "Meiko development skills, hooks, and conventions for backend and frontend work.",
+	"author": {
+		"name": "Omar Assouma",
+		"email": "omarassouma01@gmail.com"
+	},
+	"license": "MIT",
+	"keywords": ["meiko", "python", "react", "skills", "code-review", "testing"],
+	"skills": "./skills/",
+	"interface": {
+		"displayName": "Meiko Superpowers",
+		"shortDescription": "Meiko backend and frontend development workflows: Python/Flask/SQLAlchemy + React/Cypress",
+		"longDescription": "Principles-first guidance for shipping Meiko code: convention-following, TDD (pytest + Cypress), SQLAlchemy 2.0 style, paginated-endpoint pattern, React component structure, translation rules, and a learning loop that turns every correction into a sharper skill.",
+		"developerName": "Omar Assouma",
+		"category": "Coding",
+		"capabilities": ["Interactive", "Read", "Write"],
+		"defaultPrompt": [
+			"Let's add a new endpoint following Meiko conventions.",
+			"Review this Meiko code before I commit."
+		]
+	}
+}

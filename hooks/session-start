@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# SessionStart hook for meiko-superpowers.
+# Loads the using-meiko-superpowers entry skill into context at session start
+# so Claude knows about the Meiko skills without being explicitly told.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+using_content=$(cat "${PLUGIN_ROOT}/skills/using-meiko-superpowers/SKILL.md" 2>&1 \
+    || echo "Error reading using-meiko-superpowers skill")
+
+# JSON-escape via bash parameter substitution (fast, no jq dependency).
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+using_escaped=$(escape_for_json "$using_content")
+
+session_context="<EXTREMELY_IMPORTANT>\nYou have meiko-superpowers — Meiko development skills installed.\n\n**Below is the full content of your 'meiko-superpowers:using-meiko-superpowers' entry skill. For all other Meiko skills, invoke them via the Skill tool when relevant:**\n\n${using_escaped}\n</EXTREMELY_IMPORTANT>"
+
+# Platform-aware JSON output.
+# Cursor   → additional_context (snake_case, top-level)
+# Claude Code → hookSpecificOutput.additionalContext (nested)
+# Copilot CLI / SDK standard → additionalContext (top-level)
+if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+    printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
+elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+    printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+else
+    printf '{\n  "additionalContext": "%s"\n}\n' "$session_context"
+fi
+
+exit 0

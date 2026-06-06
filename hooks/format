@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# PostToolUse hook for Edit | Write.
+#
+# Runs Meiko's mandated formatters on the edited file:
+#   .py                 → black --skip-string-normalization --line-length=88
+#   .js .jsx .ts .tsx   → prettier --write (config picked up from project .prettierrc*)
+#
+# Silent no-op for any other extension, missing file, or missing tool.
+
+set -euo pipefail
+
+payload="$(cat)"
+
+if command -v jq >/dev/null 2>&1; then
+    file_path="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // .tool_input.path // empty')"
+else
+    file_path="$(printf '%s' "$payload" | grep -oE '"(file_path|path)"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"[^"]*"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')"
+fi
+
+# No path: silent exit.
+[ -z "${file_path:-}" ] && exit 0
+
+# File must exist (Write to a new file is fine; Edit that failed isn't).
+[ -f "$file_path" ] || exit 0
+
+case "$file_path" in
+    *.py)
+        # Meiko CLAUDE.md mandates: black --skip-string-normalization --line-length=88
+        command -v black >/dev/null 2>&1 || exit 0
+        if ! out="$(black --skip-string-normalization --line-length=88 "$file_path" 2>&1)"; then
+            printf '[meiko-superpowers] black failed on %s:\n%s\n' "$file_path" "$out" >&2
+        fi
+        ;;
+    *.js|*.jsx|*.ts|*.tsx)
+        # Prettier picks up the per-project .prettierrc.js config.
+        # Try npx prettier first (project-local install), fall back to global.
+        if command -v npx >/dev/null 2>&1; then
+            if ! out="$(cd "$(dirname "$file_path")" && npx --no-install prettier --write "$file_path" 2>&1)"; then
+                # npx --no-install failed — prettier isn't a local dep here. Try global.
+                command -v prettier >/dev/null 2>&1 || exit 0
+                if ! out="$(prettier --write "$file_path" 2>&1)"; then
+                    printf '[meiko-superpowers] prettier failed on %s:\n%s\n' "$file_path" "$out" >&2
+                fi
+            fi
+        elif command -v prettier >/dev/null 2>&1; then
+            if ! out="$(prettier --write "$file_path" 2>&1)"; then
+                printf '[meiko-superpowers] prettier failed on %s:\n%s\n' "$file_path" "$out" >&2
+            fi
+        fi
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+exit 0

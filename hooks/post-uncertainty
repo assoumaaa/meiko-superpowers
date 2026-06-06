@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Stop hook stub for future "uncertainty capture" loop: when Claude flags
+# uncertainty during the session, this script will package the question + code
+# context and post it somewhere (Slack? GitLab issue? Email?) for asynchronous
+# review. Today it's a no-op.
+#
+# When you turn this on:
+#   1. Decide a destination and set its URL/token in your environment (or
+#      settings.json under "env").
+#   2. Have skills append uncertainty entries to skills/_journal.md with a
+#      special marker (e.g. "## UNCERTAIN [YYYY-MM-DD HH:MM]").
+#   3. This script tails the journal for unsent entries, posts them, and
+#      marks them as sent.
+
+set -euo pipefail
+
+# Currently disabled. Exit silently.
+exit 0

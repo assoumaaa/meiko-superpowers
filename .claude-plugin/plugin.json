@@ -1,0 +1,10 @@
+{
+	"name": "meiko-superpowers",
+	"description": "Meiko development skills, hooks, and conventions for backend (Python/Flask/SQLAlchemy) and frontend (React/Cypress) work across the Meiko multi-service repo.",
+	"version": "0.1.0",
+	"author": {
+		"name": "Omar Assouma",
+		"email": "omarassouma01@gmail.com"
+	},
+	"keywords": ["meiko", "python", "react", "skills", "code-review", "testing", "workflow"]
+}

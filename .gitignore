@@ -1,0 +1,9 @@
+.DS_Store
+.worktrees/
+.private-journal/
+.claude/
+node_modules/
+*.pyc
+__pycache__/
+.venv/
+.env

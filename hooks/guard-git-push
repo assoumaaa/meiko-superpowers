@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# PreToolUse hook for Bash. Blocks `git push` until the user explicitly approves
+# in the current turn. Exiting with code 2 signals Claude Code that the tool
+# call was denied; the message on stderr is shown to the model and the user.
+
+set -euo pipefail
+
+# Hook payload arrives on stdin as JSON.
+payload="$(cat)"
+
+# Extract the command. jq is the clean path; fall back to grep if jq missing.
+if command -v jq >/dev/null 2>&1; then
+    command="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty')"
+else
+    command="$(printf '%s' "$payload" | grep -oE '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"command"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')"
+fi
+
+# No command field? Not a Bash call we care about. Allow.
+[ -z "${command:-}" ] && exit 0
+
+# Match `git push` (with any flags / remotes / refs) but not e.g. `git pushd`.
+if printf '%s' "$command" | grep -qE '(^|[[:space:];&|])git[[:space:]]+push([[:space:]]|$)'; then
+    cat >&2 <<EOF
+[meiko-superpowers] git push is gated.
+
+Detected: $command
+
+Ask the user before pushing. They must explicitly approve in this turn — a
+prior approval in a different turn doesn't carry over. If they say yes, retry
+the push. If unsure, summarize what would be pushed (branch, commits, remote)
+and wait.
+EOF
+    exit 2
+fi
+
+exit 0
