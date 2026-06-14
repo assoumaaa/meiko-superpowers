@@ -35,7 +35,57 @@ Before inventing a fixture shape, mock layout, or assertion pattern, grep for th
 - **Shared setup goes in fixtures; scenario-specific mutations can live in the test body.** Prefer fixtures for state every test in the class uses. For state that only one test needs — especially mutations whose effect IS what the test is checking — in-test `session.commit()` is fine and used elsewhere in Meiko (see `payment/services/backend/src/tests/organization/hierarchy/test_hierarchy.py`). Pattern: set `db.session.expire_on_commit = False`, grab `session = db.session()`, mutate, `session.commit()`. If a direct attribute write on a fixture-set class attribute doesn't persist (typically when the model has an unusual relationship like `foreign(Other.id) == This.fkCol`), re-fetch the row with `Model.query.get(self.fixture_obj.id)` and mutate the fetched instance — this guarantees the object is in the current session's identity map.
 - **Imports must follow the package's `__init__.py` re-exports.** If `app.models.__init__.py` re-exports `QuotePaymentType`, import it from `app.models`, not from the submodule. Don't fragment imports.
 
-### Assertions
+### Mock fixtures
+
+The data-fixture rules above are about SQLAlchemy rows. **Mock-patch fixtures** — `patch.object(...)`, `patch('module.symbol')` — follow a different rule: **one fixture per concern, inject by parameter name only what the test asserts on.**
+
+Wrong:
+
+```python
+@pytest.fixture(autouse=True)
+def setup(self):
+    app = self.client.application
+    with patch.object(app.template, 'render', return_value=BytesIO(b'PDFBYTES')) as render_mock, \
+         patch('app.routes.quote.requests.get') as qr_get:
+        qr_get.return_value = MagicMock(ok=True, content=b'...')
+        self.render_mock = render_mock
+        self.qr_get = qr_get
+        yield
+```
+
+Right:
+
+```python
+@pytest.fixture(autouse=True)
+def qr_get(self):
+    # autouse — protects against accidental real network calls
+    with patch('app.routes.quote.requests.get') as qr_get_mock:
+        qr_get_mock.return_value = MagicMock(ok=True, content=b'<svg></svg>')
+        yield qr_get_mock
+
+@pytest.fixture
+def render(self):
+    # opt-in — only tests that assert on render call inject it
+    app = self.client.application
+    with patch.object(app.template, 'render', return_value=BytesIO(b'PDFBYTES')) as render_mock:
+        yield render_mock
+
+def test_calls_qr_service_with_quote_url(self, qr_get, render):
+    ...
+    qr_get.assert_called_once()
+
+def test_embeds_qr_in_template(self, render):
+    ...
+    assert render.call_args.kwargs['data']['qrCode'].startswith('data:image/svg+xml;base64,')
+```
+
+Rules:
+- **One fixture per patched symbol.** Don't bundle unrelated `with patch(...)` contexts into a single `setup`.
+- **`autouse=True` only for patches that must always be active** — network calls (so tests can't reach the real service), time freezing, anything that produces nondeterminism or external side effects if not patched.
+- **Inject by parameter name to access the mock.** Tests that only need the patch *active* (no assertions on it) don't need to inject — autouse handles activation. Tests that assert on call args / return values inject by name and reference the parameter, not `self.<mock_name>`.
+- **No `self.<mock>` attribute stashing.** It hides which test depends on which mock and forces every test to share one chain of dependencies.
+
+
 
 - For present values: `assert resp.json['field'] == value`, or `assertIsSubsetOf({...}, resp.json)` from `meiko_test` for checking multiple fields at once.
 - For null/cleared values: `assert 'field' not in resp.json`. Marshmallow omits null `auto_field`s from the dump entirely, so a cleared field is *absent* from the response, not `None`. Do not use `data.get('field') is None` — the membership check is the Meiko-wide convention (see `tests/work_group/test_delivery_same_as_pickup.py`, mhub/payment/platform tests for the same pattern).

@@ -175,6 +175,28 @@ app.config['HEALTHCHECK_PATH'] = '/terminal/healthcheck'
 
 Don't hardcode the path in three places.
 
+### Loading env vars
+
+Load environment-derived config in `app.py`'s `init_app(app)`, using `getenv(NAME, default)` with the k8s service name as the default. Routes read from `app.config[NAME]`, **never** `os.environ[NAME]` directly.
+
+```python
+# app/app.py — init_app
+app.config['QR_SERVICE_URL'] = getenv('QR_SERVICE_URL', 'http://qr-code')
+app.config['PLATFORM_URL'] = getenv('PLATFORM_URL', 'http://platform')
+```
+
+```python
+# app/routes/quote.py — usage
+qr_service_url = app.config['QR_SERVICE_URL']  # ✅
+qr_service_url = os.environ['QR_SERVICE_URL']  # ❌ — bypasses app.config override and the central default
+```
+
+Why the default matters:
+- **Tests**: pytest conftests bootstrap the app without calling `init_app`. The default (or a value explicitly set on `app.config` in conftest) keeps lookups from KeyError-ing. Set the same key in conftest's test-client fixture so `app.config['QR_SERVICE_URL']` resolves under test.
+- **Production**: the default is the k8s service name (`http://qr-code`, `http://platform`) — the route works even before the ConfigMap is wired, and matches what a `kubectl get svc` would show.
+
+If only one service consumes the env var, put the `env { name = "...", value = "..." }` block in that service's own `tf/replicas.tf` (next to where it declares `S3_BUCKET`, etc.), not in the top-level `tf/config.tf` `service_common` map. `service_common` is for keys every service reads (MQ, Redis, Keycloak base).
+
 ## Tooling
 
 - Linter: `flake8` (`--max-line-length=88`, `--ignore=E722,E203,W391,W503`)
