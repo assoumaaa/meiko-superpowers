@@ -11,12 +11,38 @@ Meiko development skills plugin — conventions, hooks, and workflows for the Me
 
 ## Install (Claude Code)
 
+This repo ships its own marketplace (`.claude-plugin/marketplace.json`), so add the marketplace first, then install the plugin by name. No manual `git clone` needed.
+
 ```bash
-# from the parent dir of this repo
-/plugin install ./meiko-superpowers
+# 1. register the marketplace (pick one source form)
+/plugin marketplace add assoumaaa/meiko-superpowers                          # owner/repo shorthand
+/plugin marketplace add https://github.com/assoumaaa/meiko-superpowers.git   # full git URL
+/plugin marketplace add /path/to/meiko-superpowers                           # local checkout (dev)
+
+# 2. install the plugin (format is <plugin>@<marketplace>)
+/plugin install meiko-superpowers@meiko-superpowers-dev
 ```
 
-Or add to your Claude Code marketplace and `/plugin install meiko-superpowers`.
+The repo is **public**, so the shorthand/URL forms clone anonymously over HTTPS — no GitHub auth, SSH key, or credential helper needed.
+
+### Pre-register for a team
+
+To make it always available (e.g. via a shared `settings.json`), skip the marketplace add step and declare it in your Claude Code settings instead:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "meiko-superpowers-dev": {
+      "source": { "source": "git", "url": "https://github.com/assoumaaa/meiko-superpowers.git" }
+    }
+  },
+  "enabledPlugins": {
+    "meiko-superpowers@meiko-superpowers-dev": true
+  }
+}
+```
+
+Plugins load at **session start** — restart Claude Code after installing or enabling for the skills to appear.
 
 ## Install (Codex)
 
